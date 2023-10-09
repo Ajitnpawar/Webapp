@@ -1,0 +1,74 @@
+# Create an ECS cluster
+resource "aws_ecs_cluster" "Webapp_cluster" {}
+
+# Create an EC2 security group
+resource "aws_security_group" "my_security_group" {
+  name = "my-ecs-security-group"
+  description = "Security group for ECS instances"
+  ingress {
+    from_port = 80
+    to_port = 80
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Create an EC2 launch template
+resource "aws_launch_template" "webapp" {
+  name = "webapp-ecs-launch-template"
+  image_id = "ami-01234567890123456"
+  instance_type = "t2.micro"
+  key_name = "my-key-pair"
+  security_groups = ["${aws_security_group.my_security_group.id}"]
+}
+
+# Create an EC2 auto scaling group
+resource "aws_autoscaling_group" "my_asg" {
+  name = "my-webapp-ecs-asg"
+  min_size = 1
+  max_size = 2
+  desired_capacity = 1
+  launch_template = "${aws_launch_template.my_launch_template.id}"
+  target_group_arns = ["${aws_lb_target_group.my_target_group.arn}"]
+}
+
+# Create an ECS capacity provider
+resource "aws_ecs_capacity_provider" "my_-webapp-capacity_provider" {
+  name = "my-webapp-ecs-capacity-provider"
+  auto_scaling_group_provider {
+    auto_scaling_group_arn = "${aws_autoscaling_group.my_asg.arn}"
+  }
+}
+
+# Create an ECS task definition
+resource "aws_ecs_task_definition" "my_task_definition" {
+  family = "my-webapp-task-definition"
+  network_mode = "awsvpc"
+  cpu = "256"
+  memory = "512"
+  execution_role_arn = "${aws_iam_role.my_execution_role.arn}"
+  task_role_arn = "${aws_iam_role.my_task_role.arn}"
+  container_definitions = [
+    {
+      name = "my-container"
+      image = "tomcat:latest"
+      port_mappings = [
+        {
+          container_port = 80
+        }
+      ]
+    }
+  ]
+}
+
+# Create an ECS service
+resource "aws_ecs_service" "webapp-deploy-Service" {
+  name = "webapp-deploy-Service"
+  launch_type = "EC2"
+  cluster = "${aws_ecs_cluster.my_cluster.arn}"
+  task_definition = "${aws_ecs_task_definition.my_task_definition.arn}"
+  desired_count = 1
+}
+
+# Deploy a new task version with the service name
+terraform apply -var="service_name=webapp-deploy-Service"
