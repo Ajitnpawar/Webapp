@@ -1,0 +1,50 @@
+stages:
+  - pull_code
+  - build_and_package
+  - run_tests
+  - create_docker_container
+  - push_to_ecr
+  - deploy_to_ecs
+
+variables:
+  DOCKER_IMAGE_NAME: webapp
+  ECR_REPO_URL: https:// aws. 656573701312.dkr.ecr.us-west-2.amazonaws.com/webapp:2.0.0
+  ECS_CLUSTER_NAME: Webapp_cluster
+  SERVICE_NAME: webapp-deploy-Service
+
+pull_code:
+  stage: pull_code
+  script:
+    - git clone https://github.com/Ajitnpawar/Webapp.git
+    
+
+build_and_package:
+  stage: build_and_package
+  script:
+    - mvn clean package
+  
+
+run_tests:
+  stage: run_tests
+  script:
+    - mvn test
+    
+
+create_docker_container:
+  stage: create_docker_container
+  script:
+    - docker build -t $DOCKER_IMAGE_NAME .
+    
+
+push_to_ecr:
+  stage: push_to_ecr
+  script:
+    - echo $ECR_REPO_URL | docker login -u AWS --password-stdin https://$(echo $ECR_REPO_URL | cut -d/ -f1)
+    - docker push $DOCKER_IMAGE_NAME
+
+deploy_to_ecs:
+  stage: deploy_to_ecs
+  script:
+    - aws ecs update-service --cluster $ECS_CLUSTER_NAME --service $SERVICE_NAME --force-new-deployment
+   
+
